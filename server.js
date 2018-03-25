@@ -56,13 +56,17 @@ io.on('connection', (socket)=>{
     });
     //Emit userlist
     io.emit('users', users);
+    io.emit('user disconn', user);
   });
 
   //On state update, update everyone else
-  socket.on('state update', (x, y)=>{
+  socket.on('state update', (x, y, d)=>{
     findAndExecUser(user, (u)=>{
+      //Update values
       u.x = x;
       u.y = y;
+      u.direction = d;
+      io.emit('users', users);
     });
   });
 });
@@ -73,6 +77,7 @@ function User(username, x, y){
   this.y = y;
   this.health = 100;
   this.speed = 3;
+  this.direction = "down";
 }
 
 function findUser(user){
@@ -87,7 +92,6 @@ function findUser(user){
 }
 
 function findAndExecUser(user, fun){
-  console.log("before: "+users);
     if (findUser(user) != -1) fun(users[findUser(user)]);
     else {
       console.log("A find and execute has failed.");
