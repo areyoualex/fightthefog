@@ -1,6 +1,8 @@
 //Global PIXI.js app variable
 var app;
 var game = {};
+game.states = {};
+game.states.moved = false;
 
 //Socket.io constant
 const socket = io();
@@ -20,8 +22,9 @@ $(()=>{
 
 //Called after signin
 function createGame(){
-    //TODO connect to server and make a socket
-    $("#signin").append("<p>Logging in...</p>");
+  $("#signin").append("<p>Logging in...</p>");
+
+  socket.emit('signin', $('#signin > input:eq(0)').val());
 
   //Create application
   app = new PIXI.Application({
@@ -125,13 +128,31 @@ function play(){
 
 //Function to handle movement and updating server
 function move(direction, vx, vy){
-    game.player.sprite.texture.frame = direction; //Set subset of image
-    game.player.sprite.texture._updateUvs();
-    game.bg.tilePosition.x+=vx;
-    game.bg.tilePosition.y+=vy;
+  //Since player was moved, update game.states.moved
+  game.states.moved = true;
+
+  //Update display
+  game.player.sprite.texture.frame = direction; //Set subset of image
+  game.player.sprite.texture._updateUvs();
+  game.bg.tilePosition.x+=vx;
+  game.bg.tilePosition.y+=vy;
+
+  //Update position variables
+  game.player.x+=vx;
+  game.player.y+=vy;
 }
 
+//Handle pings
 socket.on('pong', function(ping){
   game.ping = ping;
   console.log("ping: "+ping);
+});
+
+//Handle userlist
+socket.on('users', function(userlist){
+  $("#users > ul").empty();
+  userlist.forEach(function(user){
+    var html = "<li>"+user.username+"</li>";
+    $("#users > ul").append(html);
+  });
 });

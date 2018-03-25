@@ -30,9 +30,73 @@ http.listen(PORT, ()=> {
 //socketIO stuff
 const io = socketIO(http);
 
+//List of online users
+var users = [];
+
 io.on('connection', (socket)=>{
-  console.log("user connected");
-  socket.on('ping', ()=>{
-    console.log("was pinged");
+  var user = "";
+  io.emit('users', users);
+
+  //On connect, intialize new User
+  socket.on('signin', (username)=>{
+    //Add new user
+    users.push(new User(username, 0, 0));
+    user = username;
+    console.log(user+" connected");
+    //Emit userlist
+    io.emit('users', users);
+  });
+
+  //On disconnect, clean userlist
+  socket.on('disconnect', (r)=>{
+    console.log(user+" disconnected");
+    //Remove the user
+    findAndExecUserIndex(user, (u)=>{
+      users.splice(u, 1);
+    });
+    //Emit userlist
+    io.emit('users', users);
+  });
+
+  //On state update, update everyone else
+  socket.on('state update', (x, y)=>{
+    findAndExecUser(user, (u)=>{
+      u.x = x;
+      u.y = y;
+    });
   });
 });
+
+function User(username, x, y){
+  this.username = username;
+  this.x = x;
+  this.y = y;
+  this.health = 100;
+  this.speed = 3;
+}
+
+function findUser(user){
+  var i = -1;
+  for (var index = 0; index < users.length; index++){
+    if (users[index].username == user){
+      i = index;
+      break;
+    }
+  }
+  return i;
+}
+
+function findAndExecUser(user, fun){
+  console.log("before: "+users);
+    if (findUser(user) != -1) fun(users[findUser(user)]);
+    else {
+      console.log("A find and execute has failed.");
+    }
+}
+
+function findAndExecUserIndex(user, fun){
+    if (findUser(user) != -1) fun(findUser(user));
+    else {
+      console.log("A find and execute has failed.");
+    }
+}
