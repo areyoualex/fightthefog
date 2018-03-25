@@ -10,7 +10,17 @@
   </head>
   <body>
       <h1>Fight the Fog</h1>
-      <script src="game.js"></script>
+      <script>
+        $(()=>{
+          //Imports all scripts at once
+          ["game", "inputhandler"]
+            .forEach(function(s){
+              var html = "<script src=\'game/"+s+".js\'><\/script>";
+              console.log(html);
+              $("body").append(html);
+            });
+        });
+      </script>
       <div id="signin">
         <p>Enter your username:</p>
         <input type="text">
