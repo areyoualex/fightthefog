@@ -2,6 +2,9 @@
 var app;
 var game = {};
 
+//Socket.io constant
+const socket = io();
+
 $(()=>{
   //When sign in button is clicked
   $("#signin > button").bind("click", function(){
@@ -49,24 +52,34 @@ function setup(){
     app.loader.resources["bg1"].texture,
     640, 480);
 
-  //Get character textures
-  game.player = new PIXI.Sprite(
-    app.loader.resources["char"].texture
-  );
-  game.player.texture.frame = new PIXI.Rectangle(0,0,64,64); //Set subset of image
-  game.player.x = 320;
-  game.player.y = 240;
-  game.player.anchor.x = 0.5;
-  game.player.anchor.y = 0.5;
-  game.speed = 3;
+  //Make player
+  game.player = new Player(320, 240);
+  game.player.health = 100;
+
+  game.healthDisplay = new PIXI.Graphics();
+  game.healthDisplay.beginFill(0x00FF99);
+  game.healthDisplay.drawRect(320-150, 20, 300/100*game.player.health, 15);
+  game.healthDisplay.endFill();
 
   //Add new sprites to stage
-  app.stage.addChild(game.bg)
-    .addChild(game.player);
+  app.stage.addChild(game.bg);
+  app.stage.addChild(game.player.sprite);
+  app.stage.addChild(game.healthDisplay);
+
+  //Set up ping variable
+  game.pingcount = 0;
+
   //This specifies the loop
   app.ticker.add(()=>{
     //Call the current game state loop and render it
     game.state();
+    //Get ping
+    if(game.pingcount>=120){
+      game.pingcount = 0;
+    socket.emit('ping');
+    } else {
+      game.pingcount++;
+    }
     app.render();
   });
   app.start();
@@ -83,31 +96,42 @@ function setup(){
 game.state = play;
 
 function play(){
+  //These specify sprites in the spritesheet
   game.player.directions = {
     up: new PIXI.Rectangle(0, 0, 64, 64),
     down: new PIXI.Rectangle(0, 64, 64, 64),
     left: new PIXI.Rectangle(64, 64, 64, 64),
     right: new PIXI.Rectangle(64, 0, 64, 64)
   };
-  //TODO do stuff
+  //Update the health display
+  // game.healthDisplay.clear();
+  // game.healthDisplay.beginFill(0x00FF99);
+  // game.healthDisplay.drawRect(320, 20, 150/100*game.player.health, 15);
+  // game.healthDisplay.endFill();
+
   if (keys.up.isDown){
-    move(game.player.directions.down, 0, game.speed);
+    move(game.player.directions.down, 0, game.player.speed);
   }
   if (keys.down.isDown){
-    move(game.player.directions.up, 0, -game.speed);
+    move(game.player.directions.up, 0, -game.player.speed);
   }
   if (keys.left.isDown){
-    move(game.player.directions.left, game.speed, 0);
+    move(game.player.directions.left, game.player.speed, 0);
   }
   if (keys.right.isDown){
-    move(game.player.directions.right, -game.speed, 0);
+    move(game.player.directions.right, -game.player.speed, 0);
   }
 }
 
 //Function to handle movement and updating server
 function move(direction, vx, vy){
-    game.player.texture.frame = direction; //Set subset of image
-    game.player.texture._updateUvs();
+    game.player.sprite.texture.frame = direction; //Set subset of image
+    game.player.sprite.texture._updateUvs();
     game.bg.tilePosition.x+=vx;
     game.bg.tilePosition.y+=vy;
 }
+
+socket.on('pong', function(ping){
+  game.ping = ping;
+  console.log("ping: "+ping);
+});

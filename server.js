@@ -4,6 +4,7 @@
 const express = require('express');
 const app = express();
 const http = require('http').Server(app);
+const firebase = require('firebase');
 
 //Use socketIO and path
 const socketIO = require('socket.io');
@@ -25,3 +26,13 @@ app.use(express.static('.'));
 http.listen(PORT, ()=> {
   console.log('listening on *:'+ PORT + ' o3o');
 })
+
+//socketIO stuff
+const io = socketIO(http);
+
+io.on('connection', (socket)=>{
+  console.log("user connected");
+  socket.on('ping', ()=>{
+    console.log("was pinged");
+  });
+});

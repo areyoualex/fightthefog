@@ -13,7 +13,11 @@
       <script>
         $(()=>{
           //Imports all scripts at once
-          ["game", "inputhandler"]
+          [
+            "game",
+            "inputhandler",
+            "player"
+          ]
             .forEach(function(s){
               var html = "<script src=\'game/"+s+".js\'><\/script>";
               console.log(html);
