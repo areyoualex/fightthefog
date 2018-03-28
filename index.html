@@ -8,6 +8,32 @@
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
     <link href="https://fonts.googleapis.com/css?family=Inconsolata|Open+Sans" rel="stylesheet">
+    <script>
+      //Fallback to local JQuery if CDN isn't working
+      if (typeof jQuery == 'undefined') {
+        document.write(unescape(
+          "%3Cscript src='resources/jquery-3.2.1.min.js' type='text/javascript'%3E%3C/script%3E"));
+      }
+      //Fallback to local PIXI if CDN isn't working
+      if (typeof PIXI == 'undefined') {
+        document.write(unescape(
+          "%3Cscript src='resources/pixi.min.js' type='text/javascript'%3E%3C/script%3E"));
+      }
+      //Fallback to local socket.io if CDN isn't working
+      if (typeof io == 'undefined') {
+        document.write(unescape(
+          "%3Cscript src='resources/socket.io.js' type='text/javascript'%3E%3C/script%3E"));
+      }
+    </script>
+    <script src="https://ajax.googleapis.com/ajax/libs/webfont/1.6.26/webfont.js"></script>
+    <script>
+      //Load fonts for PIXI.JS
+      WebFont.load({
+        google: {
+          families: ['Inconsolata', 'Open Sans']
+        }
+      });
+    </script>
   </head>
   <body>
       <h1>Fight the Fog</h1>
