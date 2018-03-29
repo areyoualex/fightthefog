@@ -4,6 +4,19 @@
     <title>Fight the Fog</title>
 
     <link rel="stylesheet" href="index.css">
+    <script src="https://www.gstatic.com/firebasejs/4.12.0/firebase.js"></script>
+    <script>
+      // Initialize Firebase
+      var config = {
+        apiKey: "AIzaSyA79j41vEahFZueunqUpIAPGt_SFqVRfs4",
+        authDomain: "la-hacks-game.firebaseapp.com",
+        databaseURL: "https://la-hacks-game.firebaseio.com",
+        projectId: "la-hacks-game",
+        storageBucket: "la-hacks-game.appspot.com",
+        messagingSenderId: "640802203689"
+      };
+      firebase.initializeApp(config);
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/4.5.1/pixi.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
@@ -43,7 +56,8 @@
           [
             "game",
             "inputhandler",
-            "player"
+            "player",
+            "clientsocketframewk"
           ]
             .forEach(function(s){
               var html = "<script src=\'game/"+s+".js\'><\/script>";

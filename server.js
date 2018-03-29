@@ -6,8 +6,8 @@ const app = express();
 const http = require('http').Server(app);
 const firebase = require('firebase');
 
-//Use socketIO and path
-const socketIO = require('socket.io');
+//Use websockets
+const ws = require('ws');
 const path = require('path');
 
 //Variables for server port (for heroku) and index.html
@@ -27,47 +27,100 @@ http.listen(PORT, ()=> {
   console.log('listening on *:'+ PORT + ' o3o');
 })
 
-//socketIO stuff
-const io = socketIO(http);
-
 //List of online users
 var users = [];
 
-io.on('connection', (socket)=>{
-  var user = "";
-  io.emit('users', users);
+//Make new WebSocket server
+var wss = new ws.Server(
+  {
+    server: http
+  },
+  function(){
+    console.log("WebSocket server now listening at "+ wss.address());
+  }
+);
 
-  //On connect, intialize new User
-  socket.on('signin', (username)=>{
-    //Add new user
-    users.push(new User(username, 0, 0));
-    user = username;
-    console.log(user+" connected");
-    //Emit userlist
-    io.emit('users', users);
-  });
+
+wss.on('connection', (socket, request)=>{
+  var user = "";
+
+  wss.broadcast('users', users);
 
   //On disconnect, clean userlist
-  socket.on('disconnect', (r)=>{
-    console.log(user+" disconnected");
+  socket.on('close', (code, reason)=>{
+    console.log(user+" disconnected with code "+code);
+
     //Remove the user
     findAndExecUserIndex(user, (u)=>{
       users.splice(u, 1);
     });
     //Emit userlist
-    io.emit('users', users);
-    io.emit('user disconn', user);
+    wss.broadcast('users', users);
+    wss.broadcast('user disconn', user);
   });
 
+  //Define an emit function for sending data
+  function sendToClient(type, data){
+    var obj = {
+      type: type,
+      data: data
+    };
+    //Send data to server if socket is open
+    if(socket.readyState === ws.OPEN)
+      socket.send(JSON.stringify(obj));
+  }
+
+  /***
+  * Defining message handlers
+  ***/
+
+  //Container for message handlers
+  var handlers = {};
+
+  //On connect, intialize new User
+  handlers.signin = function(username){
+    //TODO implement better validation
+    //Validate user
+    if(username.length > 20){
+      sendToClient('signin', {accept: false, reason: "Username too long"});
+      return;
+    } else {
+      //Add new user
+      users.push(new User(username, 0, 0));
+      user = username;
+      console.log(user+" connected");
+      //Emit userlist
+      wss.broadcast('users', users);
+
+      sendToClient('signin', {accept: true});
+    }
+  };
+
   //On state update, update everyone else
-  socket.on('state update', (x, y, d)=>{
+  //TODO Make this more efficient
+  handlers['state update'] = function(x, y, d){
     findAndExecUser(user, (u)=>{
       //Update values
       u.x = x;
       u.y = y;
       u.direction = d;
-      io.emit('users', users);
+      wss.broadcast('users', users);
     });
+  };
+
+  //Handle messages
+  socket.on('message', function(data){
+    //Handle empty messages
+    if(data == undefined){
+      console.log("unexpected message: "+data);
+      return;
+    }
+
+    //Get the data sent from the server
+    var message = JSON.parse(data);
+
+    //Execute the handler for the message type, passing the data along
+    handlers[message.type](message.data);
   });
 });
 
@@ -104,3 +157,22 @@ function findAndExecUserIndex(user, fun){
       console.log("A find and execute has failed.");
     }
 }
+
+// Broadcast to all.
+wss.broadcast = function broadcast(type, data) {
+  wss.clients.forEach(function each(client) {
+    if (client.readyState === ws.OPEN) {
+      client.send(JSON.stringify(
+        {
+          type: type,
+          data: data
+        }
+      ));
+    }
+        {
+          type: type,
+          data: data
+        }
+      ));
+  });
+};

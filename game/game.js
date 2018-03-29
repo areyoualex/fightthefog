@@ -1,5 +1,7 @@
 //Global PIXI.js app variable
 var app;
+
+//Game variables to track state
 var game = {};
 game.states = {};
 game.users = [];
@@ -8,10 +10,11 @@ game.players.x = 320;
 game.players.y = 240;
 game.states.moved = false;
 game.states.loaded = false;
+
 var username;
 
-//Socket.io constant
-const socket = io();
+//WebSocket connection variable
+var socket = undefined;
 
 $(()=>{
   //When sign in button is clicked
@@ -19,8 +22,6 @@ $(()=>{
     //If text is blank, tell user to fill it out
     if($("#signin > input:eq(0)").val() == "") { alert("Please enter a name."); }
     else {
-      //Hide sign-in form
-      $("#signin").hide();
       createGame();
     }
   });
@@ -28,30 +29,28 @@ $(()=>{
 
 //Called after signin
 function createGame(){
-  $("#signin").append("<p>Logging in...</p>");
+  $("#signin > p:eq(1)").remove();
+  $("#signin").append("<p>Connecting to the server...</p>");
 
-  socket.emit('signin', $('#signin > input:eq(0)').val());
-
-  username = $('#signin > input:eq(0)').val();
-
-  //Create application
-  app = new PIXI.Application({
-    "width":640,
-    "height":480
-  });
-
-  //Add child to DOM
-  document.body.appendChild(app.view);
-
-  //Load everything
-  load();
+  //Start a connection with the server
+  if (socket == undefined){
+    socket = new WebSocket("ws://" + location.host);
+    //When the connection opens, sign in
+    socket.addEventListener('open', function(){
+      //Add messages event listener
+      socket.addEventListener('message', onMessage);
+      sendToServer('signin', $('#signin > input:eq(0)').val());
+    });
+  } else if (socket.readyState === WebSocket.OPEN)
+      sendToServer('signin', $('#signin > input:eq(0)').val());
 }
 
 //Will handle all loading
 function load(){
+  console.log("load() has been reached");
+
   app.loader.add('bg1', 'resources/images/bg1.png')
     .add('char', 'resources/images/char.png')
-  console.log("load() has been reached");
   app.loader.load(setup);
 }
 
@@ -99,20 +98,13 @@ function setup(){
     .addChild(game.healthDisplay.text);
   app.stage.addChild(namedisplay);
 
-  //Set up ping variable
-  game.pingcount = 0;
+  //Holds the game's current state
+  game.state = game.states.play;
 
-  //This specifies the loop
+  //This specifies the game loop
   app.ticker.add(()=>{
     //Call the current game state loop and render it
     game.state();
-    //Get ping
-    if(game.pingcount>=120){
-      game.pingcount = 0;
-    socket.emit('ping');
-    } else {
-      game.pingcount++;
-    }
     app.render();
   });
   app.start();
@@ -125,10 +117,7 @@ function setup(){
   keys.space = keyboard(32);
 }
 
-//Holds the game's current state
-game.state = play;
-
-function play(){
+game.states.play = function(){
   //These specify sprites in the spritesheet
   game.directions = {
     up: new PIXI.Rectangle(0, 0, 64, 64),
@@ -161,7 +150,7 @@ function play(){
 
   //Send state to server
   if (game.states.moved){
-    socket.emit('state update', game.player.x, game.player.y, game.player.direction);
+    sendToServer('state update', game.player.x, game.player.y, game.player.direction);
     game.states.moved = false;
   }
 
@@ -171,7 +160,7 @@ function play(){
     u.sprite.y = u.y;
     u.sprite.texture.frame = game.directions[u.direction];
   });
-}
+};
 
 //Function to handle movement and updating server
 function move(direction, vx, vy){
@@ -197,60 +186,3 @@ function move(direction, vx, vy){
   game.players.position.x+=vx;
   game.players.position.y+=vy;
 }
-
-//Handle pings
-socket.on('pong', function(ping){
-  game.ping = ping;
-  console.log("ping: "+ping);
-});
-
-//Handle userlist
-socket.on('users', function(userlist){
-  //If game is loaded, update the displayed users
-  if(game.states.loaded){
-    userlist.forEach((u)=>{
-      if (u.username != game.player.username){
-        //Find the index of the user
-        var i = -1;
-        for (var index = 0; index < game.users.length; index++){
-          if (game.users[index].username == u.username){
-            i = index;
-            break;
-          }
-        }
-        if (i == -1){
-          //Make a new user
-          var user = new Player(u.x, u.y, u.username);
-          game.users.push(user);
-          game.players.addChild(user.sprite);
-        } else {
-          //Update user status
-          game.users[index].x = u.x;
-          game.users[index].y = u.y;
-          game.users[index].direction = u.direction;
-        }
-      }
-    });
-  }
-  $("#users > ul").empty();
-  userlist.forEach(function(user){
-    var html = "<li>"+user.username+"</li>";
-    $("#users > ul").append(html);
-  });
-});
-
-socket.on('user disconn', function(username){
-  //Find the index of the user
-  var i = -1;
-  for (var index = 0; index < game.users.length; index++){
-    if (game.users[index].username == username){
-      i = index;
-      break;
-    }
-  }
-  if (index != -1){
-    //Delete the user
-    game.players.removeChild(game.users[i].sprite);
-    game.users.splice(index, 1);
-  }
-});
