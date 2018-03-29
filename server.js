@@ -165,14 +165,9 @@ wss.broadcast = function broadcast(type, data) {
       client.send(JSON.stringify(
         {
           type: type,
-          data: data
+          "data": data
         }
       ));
     }
-        {
-          type: type,
-          data: data
-        }
-      ));
   });
 };
