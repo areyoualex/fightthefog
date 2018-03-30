@@ -17,7 +17,11 @@ const INDEX = path.join(__dirname, 'index.html');
 //Sends index.html
 app.get('/', (req, res) => {
   res.sendFile(INDEX);
-})
+});
+
+app.get('/users.json', (req, res)=>{
+  res.send(JSON.stringify(users));
+});
 
 //Sends static files like CSS, JS, images, etc.
 app.use(express.static('.'));
@@ -28,7 +32,7 @@ http.listen(PORT, ()=> {
 })
 
 //List of online users
-var users = [];
+var users = {};
 
 //Make new WebSocket server
 var wss = new ws.Server(
@@ -42,21 +46,18 @@ var wss = new ws.Server(
 
 
 wss.on('connection', (socket, request)=>{
-  var user = "";
-
-  wss.broadcast('users', users);
+  socket.username = "";
 
   //On disconnect, clean userlist
   socket.on('close', (code, reason)=>{
-    console.log(user+" disconnected with code "+code);
+    console.log(socket.username+" disconnected with code "+code);
 
     //Remove the user
-    findAndExecUserIndex(user, (u)=>{
-      users.splice(u, 1);
-    });
+    if (socket.username in users) delete users[socket.username];
+
     //Emit userlist
     wss.broadcast('users', users);
-    wss.broadcast('user disconn', user);
+    wss.broadcast('user disconn', socket.username);
   });
 
   //Define an emit function for sending data
@@ -84,28 +85,33 @@ wss.on('connection', (socket, request)=>{
     if(username.length > 20){
       sendToClient('signin', {accept: false, reason: "Username too long"});
       return;
+    } else if (username in users) {
+      sendToClient('signin', {accept: false, reason: "Username already taken"});
     } else {
       //Add new user
-      users.push(new User(username, 0, 0));
-      user = username;
-      console.log(user+" connected");
+      users[username] = new User(username, 0, 0);
+      socket.username = username;
+      console.log(socket.username+" connected");
+      //Accept sign in
+      sendToClient('signin', {accept: true});
+
       //Emit userlist
       wss.broadcast('users', users);
-
-      sendToClient('signin', {accept: true});
     }
   };
 
   //On state update, update everyone else
   //TODO Make this more efficient
-  handlers['state update'] = function(x, y, d){
-    findAndExecUser(user, (u)=>{
+  handlers['state update'] = function(state){
+    findAndExecUser(socket.username, (u)=>{
       //Update values
-      u.x = x;
-      u.y = y;
-      u.direction = d;
-      wss.broadcast('users', users);
+      console.log("Updating state for "+socket.username);
+      console.log("x: "+state.x+", y: "+state.y+", direction: "+state.direction);
+      u.x = state.x;
+      u.y = state.y;
+      u.direction = state.direction;
     });
+    wss.broadcast('users', users);
   };
 
   //Handle messages
@@ -120,7 +126,8 @@ wss.on('connection', (socket, request)=>{
     var message = JSON.parse(data);
 
     //Execute the handler for the message type, passing the data along
-    handlers[message.type](message.data);
+    if (message.type in handlers)
+      handlers[message.type](message.data);
   });
 });
 
@@ -145,18 +152,12 @@ function findUser(user){
 }
 
 function findAndExecUser(user, fun){
-    if (findUser(user) != -1) fun(users[findUser(user)]);
+    if (user in users) fun(users[user]);
     else {
       console.log("A find and execute has failed.");
     }
 }
 
-function findAndExecUserIndex(user, fun){
-    if (findUser(user) != -1) fun(findUser(user));
-    else {
-      console.log("A find and execute has failed.");
-    }
-}
 
 // Broadcast to all.
 wss.broadcast = function broadcast(type, data) {

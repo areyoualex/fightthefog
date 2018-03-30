@@ -4,7 +4,7 @@ var app;
 //Game variables to track state
 var game = {};
 game.states = {};
-game.users = [];
+game.users = {};
 game.players = new PIXI.Container();
 game.players.x = 320;
 game.players.y = 240;
@@ -25,6 +25,13 @@ $(()=>{
       createGame();
     }
   });
+  $.getJSON("users.json", function(data){
+    $("#users > ul").empty();
+    for (var u in data){
+      var html = "<li>"+data[u].username+"</li>";
+      $("#users > ul").append(html);
+    }
+  });
 });
 
 //Called after signin
@@ -40,6 +47,25 @@ function createGame(){
       //Add messages event listener
       socket.addEventListener('message', onMessage);
       sendToServer('signin', $('#signin > input:eq(0)').val());
+
+      socket.addEventListener('close', function(e){
+    		switch (e){
+    		case 1000:	// CLOSE_NORMAL
+    			console.log("WebSocket: closed");
+    			break;
+    		default:	// Abnormal closure
+          socket = new WebSocket("ws://"+location.host);
+          //TODO let server know that this is the disconnected user
+    			break;
+    		}
+    	});
+
+      socket.addEventListener('error', function(e){
+        if (e.code == 'ECONNREFUSED'){
+          socket = new WebSocket("ws://"+location.host);
+          //TODO let server know that this is the disconnected user
+        }
+    	});
     });
   } else if (socket.readyState === WebSocket.OPEN)
       sendToServer('signin', $('#signin > input:eq(0)').val());
@@ -67,9 +93,19 @@ function setup(){
   game.charsprite = PIXI.RenderTexture.create(128, 128);
   game.charsprite.baseTexture = app.loader.resources.char.texture.baseTexture;
 
+  //These specify sprites in the spritesheet
+  game.directions = {
+    up: new PIXI.Rectangle(0, 64, 64, 64),
+    down: new PIXI.Rectangle(0, 0, 64, 64),
+    left: new PIXI.Rectangle(64, 64, 64, 64),
+    right: new PIXI.Rectangle(64, 0, 64, 64)
+  };
+
   //Make player
-  game.player = new Player(320, 240, username);
+  game.player = new Player({username: username, x: 0, y: 0});
   game.player.health = 100;
+  game.player.sprite.x = 320;
+  game.player.sprite.y = 240;
 
   game.healthDisplay = new PIXI.Graphics();
   game.healthDisplay.beginFill(0x00FF99);
@@ -118,71 +154,33 @@ function setup(){
 }
 
 game.states.play = function(){
-  //These specify sprites in the spritesheet
-  game.directions = {
-    up: new PIXI.Rectangle(0, 0, 64, 64),
-    down: new PIXI.Rectangle(0, 64, 64, 64),
-    left: new PIXI.Rectangle(64, 64, 64, 64),
-    right: new PIXI.Rectangle(64, 0, 64, 64)
-  };
   //Update the health display
   game.healthDisplay.clear();
   game.healthDisplay.beginFill(0x00FF99);
   game.healthDisplay.drawRect(320-150, 20, 300/100*game.player.health, 15);
   game.healthDisplay.endFill();
 
-  if (keys.up.isDown){
-    move(game.directions.down, 0, game.player.speed);
-    game.player.direction = "down";
-  }
-  if (keys.down.isDown){
-    move(game.directions.up, 0, -game.player.speed);
-    game.player.direction = "up";
-  }
-  if (keys.left.isDown){
-    move(game.directions.left, game.player.speed, 0);
-    game.player.direction = "left";
-  }
-  if (keys.right.isDown){
-    move(game.directions.right, -game.player.speed, 0);
-    game.player.direction = "right";
-  }
+  //Keyboard input
+  handleInputs();
 
   //Send state to server
   if (game.states.moved){
-    sendToServer('state update', game.player.x, game.player.y, game.player.direction);
+    var stateObj = {
+      x: game.player.x,
+      y: game.player.y,
+      direction: game.player.direction,
+    };
+    sendToServer('state update', stateObj);
     game.states.moved = false;
   }
 
   //Update states of everyone else
-  game.users.forEach((u)=>{
-    u.sprite.x = u.x;
-    u.sprite.y = u.y;
-    u.sprite.texture.frame = game.directions[u.direction];
-  });
+  for (var u in game.users){
+    if (game.users[u].sprite == undefined) return;
+    else {
+      game.users[u].sprite.x = game.users[u].x;
+      game.users[u].sprite.y = game.users[u].y;
+      game.users[u].sprite.texture.frame = game.directions[game.users[u].direction];
+    }
+  };
 };
-
-//Function to handle movement and updating server
-function move(direction, vx, vy){
-  //Since player was moved, update game.states.moved
-  game.states.moved = true;
-
-  //Update display
-  game.player.sprite.texture.frame = direction; //Set subset of image
-  game.player.sprite.texture._updateUvs();
-  if(game.bg.tilePosition.x+vx > 1000 || game.bg.tilePosition.x+vx < -1000)
-    return;
-  if(game.bg.tilePosition.y+vy > 1000 || game.bg.tilePosition.y+vy < -1000)
-    return;
-  game.bg.tilePosition.x+=vx;
-  game.bg.tilePosition.y+=vy;
-
-  //Update position variables
-  game.player.x-=vx;
-  game.player.y-=vy;
-  game.player.direction = direction;
-
-  //Update position of map
-  game.players.position.x+=vx;
-  game.players.position.y+=vy;
-}

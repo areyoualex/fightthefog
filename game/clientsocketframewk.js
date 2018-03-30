@@ -22,53 +22,46 @@ function onMessage(event){
 game.handlers.users = function(userlist){
   //If game is loaded, update the displayed users
   if(game.states.loaded){
-    userlist.forEach((u)=>{
-      if (u.username != game.player.username){
-        //Find the index of the user
-        var i = -1;
-        for (var index = 0; index < game.users.length; index++){
-          if (game.users[index].username == u.username){
-            i = index;
-            break;
-          }
-        }
-        if (i == -1){
+    for(var u in userlist){
+      //Check that this isn't the player
+      if (userlist[u].username != game.player.username){
+        //If user doesn't exist yet
+        if (userlist[u].username in game.users === false){
           //Make a new user
-          var user = new Player(u.x, u.y, u.username);
-          game.users.push(user);
-          game.players.addChild(user.sprite);
+          var newUser = new Player(userlist[u]);
+          game.users[userlist[u].username] = newUser;
+          //Add sprite to players
+          game.players.addChild(newUser.sprite);
         } else {
           //Update user status
           //TODO more efficient user state update (don't send whole list)
-          game.users[index].x = u.x;
-          game.users[index].y = u.y;
-          game.users[index].direction = u.direction;
+          game.users[userlist[u].username].x = userlist[u].x;
+          game.users[userlist[u].username].y = userlist[u].y*-1;
+          game.users[userlist[u].username].direction = userlist[u].direction;
         }
+      } else {
       }
-    });
+    };
   }
+  //Update user list
   $("#users > ul").empty();
-  userlist.forEach(function(user){
-    var html = "<li>"+user.username+"</li>";
+  for (var i in userlist){
+    var html = "<li>"+userlist[i].username+"</li>";
     $("#users > ul").append(html);
-  });
+  };
 }
 
 //TODO integrate this into users handler
 game.handlers['user disconn'] = function(username){
-  //Find the index of the user
-  var i = -1;
-  for (var index = 0; index < game.users.length; index++){
-    if (game.users[index].username == username){
-      i = index;
-      break;
-    }
-  }
-  if (index != -1){
+  console.log(username+" disconnected");
+  if (username in game.users){
     //Delete the user
-    game.players.removeChild(game.users[i].sprite);
-    game.users.splice(index, 1);
+    console.log("removed user successfully");
+    game.players.removeChild(game.users[username].sprite);
+    delete game.users[username];
   }
+  console.log("new user list:");
+  console.log(JSON.stringify(users));
 }
 
 game.handlers.signin = function(key){
