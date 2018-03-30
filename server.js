@@ -106,13 +106,18 @@ wss.on('connection', (socket, request)=>{
     findAndExecUser(socket.username, (u)=>{
       //Update values
       console.log("Updating state for "+socket.username);
-      console.log("x: "+state.x+", y: "+state.y+", direction: "+state.direction);
-      u.x = state.x;
-      u.y = state.y;
-      u.direction = state.direction;
+      for (var key in state){
+        if (key in u){
+          u[key] = state[key];
+        }
+      }
     });
-    wss.broadcast('users', users);
+    wss.broadcast('state update', state);
   };
+
+  handlers.users = function(){
+    sendToClient('users', users);
+  }
 
   //Handle messages
   socket.on('message', function(data){
@@ -165,7 +170,7 @@ wss.broadcast = function broadcast(type, data) {
     if (client.readyState === ws.OPEN) {
       client.send(JSON.stringify(
         {
-          type: type,
+          "type": type,
           "data": data
         }
       ));

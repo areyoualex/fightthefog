@@ -151,6 +151,9 @@ function setup(){
   keys.down = keyboard(83);
   keys.right = keyboard(68);
   keys.space = keyboard(32);
+
+  //Request userlist
+  sendToServer('users');
 }
 
 game.states.play = function(){
@@ -166,6 +169,7 @@ game.states.play = function(){
   //Send state to server
   if (game.states.moved){
     var stateObj = {
+      username: game.player.username,
       x: game.player.x,
       y: game.player.y,
       direction: game.player.direction,

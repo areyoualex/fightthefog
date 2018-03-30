@@ -14,8 +14,9 @@ function onMessage(event){
   //Get the data sent from the server
   var message = JSON.parse(event.data);
 
-  //Execute the handler for the message type, passing the data along
-  game.handlers[message.type](message.data);
+  //Execute the handler for the message type if it exists, passing the data along
+  if (message.type in game.handlers)
+    game.handlers[message.type](message.data);
 };
 
 //Handle userlist
@@ -34,10 +35,9 @@ game.handlers.users = function(userlist){
           game.players.addChild(newUser.sprite);
         } else {
           //Update user status
-          //TODO more efficient user state update (don't send whole list)
-          game.users[userlist[u].username].x = userlist[u].x;
-          game.users[userlist[u].username].y = userlist[u].y*-1;
-          game.users[userlist[u].username].direction = userlist[u].direction;
+          // game.users[userlist[u].username].x = userlist[u].x;
+          // game.users[userlist[u].username].y = userlist[u].y*-1;
+          // game.users[userlist[u].username].direction = userlist[u].direction;
         }
       } else {
       }
@@ -87,5 +87,20 @@ game.handlers.signin = function(key){
     $("#signin > p:last").text("Sign-in rejected: "+key.reason);
     $("#signin > p:last").css("color", "red");
     console.log("Sign in rejected because of: "+key.reason);
+  }
+};
+
+game.handlers['state update'] = function(state){
+  //Check that this isn't the user
+  if (state.username == game.player.username) return;
+
+  //If game is loaded, update the user
+  if(game.states.loaded){
+    if (state.username in game.users){
+      //Update user status
+      game.users[state.username].x = state.x;
+      game.users[state.username].y = state.y*-1;
+      game.users[state.username].direction = state.direction;
+    }
   }
 };
